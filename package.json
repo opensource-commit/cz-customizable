@@ -25,9 +25,7 @@
     "url": "https://github.com/leoforfree/cz-customizable.git"
   },
   "author": "Leonardo Correa <leonardoanalista@gmail.com>",
-  "contributors": [
-    "Aleksey Guryanov <gurianov@gmail.com>"
-  ],
+  "contributors": ["Aleksey Guryanov <gurianov@gmail.com>"],
   "license": "MIT",
   "dependencies": {
     "editor": "1.0.0",
@@ -60,9 +58,6 @@
     },
     "cz-customizable": {
       "config": "cz-config-EXAMPLE.js"
-    },
-    "ghooks": {
-      "pre-commit": "npm run lint && npm run test"
     }
   }
 }
