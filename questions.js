@@ -1,72 +1,83 @@
-const fs = require('fs');
-const _ = require('lodash');
-const buildCommit = require('./buildCommit');
-const log = require('./logger');
+const fs = require('fs')
+const _ = require('lodash')
+const buildCommit = require('./buildCommit')
+const log = require('./logger')
 
-const isNotWip = answers => answers.type.toLowerCase() !== 'wip';
+const isNotWip = answers => answers.type.toLowerCase() !== 'wip'
 
 const isValidateTicketNo = (value, config) => {
   if (!value) {
-    return !config.isTicketNumberRequired;
+    return !config.isTicketNumberRequired
   }
   if (!config.ticketNumberRegExp) {
-    return true;
+    return true
   }
-  const reg = new RegExp(config.ticketNumberRegExp);
+  const reg = new RegExp(config.ticketNumberRegExp)
   if (value.replace(reg, '') !== '') {
-    return false;
+    return false
   }
-  return true;
-};
+  return true
+}
 
 const getPreparedCommit = context => {
-  let message = null;
+  let message = null
   if (fs.existsSync('./.git/COMMIT_EDITMSG')) {
-    let preparedCommit = fs.readFileSync('./.git/COMMIT_EDITMSG', 'utf-8');
+    let preparedCommit = fs.readFileSync('./.git/COMMIT_EDITMSG', 'utf-8')
     preparedCommit = preparedCommit
       .replace(/^#.*/gm, '')
       .replace(/^\s*[\r\n]/gm, '')
       .replace(/[\r\n]$/, '')
-      .split(/\r\n|\r|\n/);
+      .split(/\r\n|\r|\n/)
 
     if (preparedCommit.length && preparedCommit[0]) {
-      if (context === 'subject') [message] = preparedCommit;
+      if (context === 'subject') [message] = preparedCommit
       else if (context === 'body' && preparedCommit.length > 1) {
-        preparedCommit.shift();
-        message = preparedCommit.join('|');
+        preparedCommit.shift()
+        message = preparedCommit.join('|')
       }
     }
   }
-  return message;
-};
+  return message
+}
 
 module.exports = {
-  getQuestions(config, cz) {
+  getQuestions (config, cz) {
     // normalize config optional options
-    const scopeOverrides = config.scopeOverrides || {};
-    const messages = config.messages || {};
-    const skipQuestions = config.skipQuestions || [];
+    const scopeOverrides = config.scopeOverrides || {}
+    const messages = config.messages || {}
+    const skipQuestions = config.skipQuestions || []
 
-    messages.type = messages.type || "Select the type of change that you're committing:";
-    messages.scope = messages.scope || '\nDenote the SCOPE of this change (optional):';
-    messages.customScope = messages.customScope || 'Denote the SCOPE of this change:';
+    messages.type = messages.type || "Select the type of change that you're committing:"
+    messages.scope = messages.scope || '\nDenote the SCOPE of this change (optional):'
+    messages.customScope = messages.customScope || 'Denote the SCOPE of this change:'
     if (!messages.ticketNumber) {
       if (config.ticketNumberRegExp) {
         messages.ticketNumber =
           messages.ticketNumberPattern ||
-          `Enter the ticket number following this pattern (${config.ticketNumberRegExp})\n`;
+          `Enter the ticket number following this pattern (${config.ticketNumberRegExp})\n`
       } else {
-        messages.ticketNumber = 'Enter the ticket number:\n';
+        messages.ticketNumber = 'Enter the ticket number:\n'
       }
     }
-    messages.subject = messages.subject || 'Write a SHORT, IMPERATIVE tense description of the change:\n';
+    messages.subject = messages.subject || 'Write a SHORT, IMPERATIVE tense description of the change:\n'
     messages.body =
-      messages.body || 'Provide a LONGER description of the change (optional). Use "|" to break new line:\n';
-    messages.breaking = messages.breaking || 'List any BREAKING CHANGES (optional):\n';
-    messages.footer = messages.footer || 'List any ISSUES CLOSED by this change (optional). E.g.: #31, #34:\n';
-    messages.confirmCommit = messages.confirmCommit || 'Are you sure you want to proceed with the commit above?';
+      messages.body || 'Provide a LONGER description of the change (optional). Use "|" to break new line:\n'
+    messages.breaking = messages.breaking || 'List any BREAKING CHANGES (optional):\n'
+    messages.footer = messages.footer || 'List any ISSUES CLOSED by this change (optional). E.g.: #31, #34:\n'
+    messages.confirmCommit = messages.confirmCommit || 'Are you sure you want to proceed with the commit above?'
 
     let questions = [
+      {
+        type: 'input',
+        name: 'ticketNumber',
+        message: messages.ticketNumber,
+        when () {
+          return !!config.allowTicketNumber // no ticket numbers allowed unless specifed
+        },
+        validate (value) {
+          return isValidateTicketNo(value, config)
+        },
+      },
       {
         type: 'list',
         name: 'type',
@@ -77,55 +88,44 @@ module.exports = {
         type: 'list',
         name: 'scope',
         message: messages.scope,
-        choices(answers) {
-          let scopes = [];
+        choices (answers) {
+          let scopes = []
           if (scopeOverrides[answers.type]) {
-            scopes = scopes.concat(scopeOverrides[answers.type]);
+            scopes = scopes.concat(scopeOverrides[answers.type])
           } else {
-            scopes = scopes.concat(config.scopes);
+            scopes = scopes.concat(config.scopes)
           }
           if (config.allowCustomScopes || scopes.length === 0) {
             scopes = scopes.concat([
               new cz.Separator(),
               { name: 'empty', value: false },
               { name: 'custom', value: 'custom' },
-            ]);
+            ])
           }
-          return scopes;
+          return scopes
         },
-        when(answers) {
-          let hasScope = false;
+        when (answers) {
+          let hasScope = false
           if (scopeOverrides[answers.type]) {
-            hasScope = !!(scopeOverrides[answers.type].length > 0);
+            hasScope = !!(scopeOverrides[answers.type].length > 0)
           } else {
-            hasScope = !!(config.scopes && config.scopes.length > 0);
+            hasScope = !!(config.scopes && config.scopes.length > 0)
           }
           if (!hasScope) {
             // TODO: Fix when possible
             // eslint-disable-next-line no-param-reassign
-            answers.scope = 'custom';
-            return false;
+            answers.scope = 'custom'
+            return false
           }
-          return isNotWip(answers);
+          return isNotWip(answers)
         },
       },
       {
         type: 'input',
         name: 'scope',
         message: messages.customScope,
-        when(answers) {
-          return answers.scope === 'custom';
-        },
-      },
-      {
-        type: 'input',
-        name: 'ticketNumber',
-        message: messages.ticketNumber,
-        when() {
-          return !!config.allowTicketNumber; // no ticket numbers allowed unless specifed
-        },
-        validate(value) {
-          return isValidateTicketNo(value, config);
+        when (answers) {
+          return answers.scope === 'custom'
         },
       },
       {
@@ -133,17 +133,17 @@ module.exports = {
         name: 'subject',
         message: messages.subject,
         default: getPreparedCommit('subject'),
-        validate(value) {
-          const limit = config.subjectLimit || 100;
+        validate (value) {
+          const limit = config.subjectLimit || 100
           if (value.length > limit) {
-            return `Exceed limit: ${limit}`;
+            return `Exceed limit: ${limit}`
           }
-          return true;
+          return true
         },
-        filter(value) {
-          const upperCaseSubject = config.upperCaseSubject || false;
+        filter (value) {
+          const upperCaseSubject = config.upperCaseSubject || false
 
-          return (upperCaseSubject ? value.charAt(0).toUpperCase() : value.charAt(0).toLowerCase()) + value.slice(1);
+          return (upperCaseSubject ? value.charAt(0).toUpperCase() : value.charAt(0).toLowerCase()) + value.slice(1)
         },
       },
       {
@@ -156,15 +156,15 @@ module.exports = {
         type: 'input',
         name: 'breaking',
         message: messages.breaking,
-        when(answers) {
+        when (answers) {
           // eslint-disable-next-line max-len
           if (
             config.askForBreakingChangeFirst ||
             (config.allowBreakingChanges && config.allowBreakingChanges.indexOf(answers.type.toLowerCase()) >= 0)
           ) {
-            return true;
+            return true
           }
-          return false; // no breaking changes allowed unless specifed
+          return false // no breaking changes allowed unless specifed
         },
       },
       {
@@ -182,25 +182,25 @@ module.exports = {
           { key: 'e', name: 'Edit message', value: 'edit' },
         ],
         default: 0,
-        message(answers) {
-          const SEP = '###--------------------------------------------------------###';
-          log.info(`\n${SEP}\n${buildCommit(answers, config)}\n${SEP}\n`);
-          return messages.confirmCommit;
+        message (answers) {
+          const SEP = '###--------------------------------------------------------###'
+          log.info(`\n${SEP}\n${buildCommit(answers, config)}\n${SEP}\n`)
+          return messages.confirmCommit
         },
       },
-    ];
+    ]
 
-    questions = questions.filter(item => !skipQuestions.includes(item.name));
+    questions = questions.filter(item => !skipQuestions.includes(item.name))
 
     if (config.askForBreakingChangeFirst) {
-      const isBreaking = oneQuestion => oneQuestion.name === 'breaking';
+      const isBreaking = oneQuestion => oneQuestion.name === 'breaking'
 
-      const breakingQuestion = _.filter(questions, isBreaking);
-      const questionWithoutBreaking = _.reject(questions, isBreaking);
+      const breakingQuestion = _.filter(questions, isBreaking)
+      const questionWithoutBreaking = _.reject(questions, isBreaking)
 
-      questions = _.concat(breakingQuestion, questionWithoutBreaking);
+      questions = _.concat(breakingQuestion, questionWithoutBreaking)
     }
 
-    return questions;
+    return questions
   },
-};
+}
